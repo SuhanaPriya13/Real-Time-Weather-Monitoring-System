@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Weather Station Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-r from-blue-50 to-blue-100 text-gray-800 font-sans min-h-screen">
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <h1 class="text-4xl font-extrabold text-center mb-10 text-blue-800">🌦️ Smart Weather Monitoring Dashboard</h1>
+
+    <!-- Latest Readings Section -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+      <div class="bg-white shadow-md rounded-2xl p-6 hover:shadow-xl transition">
+        <p class="text-gray-500 text-sm">Temperature</p>
+        <p class="text-3xl font-bold text-red-500" id="temp">--</p>
+      </div>
+      <div class="bg-white shadow-md rounded-2xl p-6 hover:shadow-xl transition">
+        <p class="text-gray-500 text-sm">Humidity</p>
+        <p class="text-3xl font-bold text-blue-500" id="hum">--</p>
+      </div>
+      <div class="bg-white shadow-md rounded-2xl p-6 hover:shadow-xl transition">
+        <p class="text-gray-500 text-sm">Air Quality Index</p>
+        <p class="text-3xl font-bold text-green-600" id="aqi">--</p>
+      </div>
+      <div class="bg-white shadow-md rounded-2xl p-6 hover:shadow-xl transition">
+        <p class="text-gray-500 text-sm">Rain Status</p>
+        <p class="text-3xl font-bold text-indigo-600" id="rain">--</p>
+      </div>
+    </div>
+
+    <!-- Temperature & Humidity Trend Chart -->
+    <div class="bg-white shadow-md rounded-2xl p-6 mb-12">
+      <h2 class="text-2xl font-semibold mb-4">📈 Temperature & Humidity Trends</h2>
+      <div class="overflow-x-auto h-[300px]">
+        <canvas id="tempHumChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Rain Trend Chart -->
+    <div class="bg-white shadow-md rounded-2xl p-6">
+      <h2 class="text-2xl font-semibold mb-4">🌧️ Rain Occurrence Trends</h2>
+      <div class="overflow-x-auto h-[250px]">
+        <canvas id="rainChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQdIfxUhzOVm5vz6Mn5rfYE67E9aDUJGnfRAE_Z3TYs00dMkYx9zXgYzKMTKN16uTtIf61dBe0BZqut/pub?output=csv";
+
+    async function fetchData() {
+      const res = await fetch(SHEET_CSV_URL);
+      const csv = await res.text();
+      const rows = csv.trim().split("\n").slice(1).map(r => r.split(","));
+      return rows.filter(r => r.length >= 5).map(r => ({
+        timestamp: r[0].trim(),
+        temp: parseFloat(r[1]),
+        hum: parseFloat(r[2]),
+        aqi: parseInt(r[3]),
+        rain: r[4].trim()
+      }));
+    }
+
+    function updateLatest(data) {
+      const last = data[data.length - 1];
+      document.getElementById("temp").textContent = `${last.temp} °C`;
+      document.getElementById("hum").textContent = `${last.hum} %`;
+      document.getElementById("aqi").textContent = `${last.aqi}`;
+      document.getElementById("rain").textContent = `${last.rain}`;
+    }
+
+    function renderCharts(data) {
+      const labels = data.map(d => d.timestamp);
+      const temps = data.map(d => d.temp);
+      const hums = data.map(d => d.hum);
+      const rainLabels = [...new Set(data.map(d => d.rain))];
+      const rainCounts = rainLabels.map(label => data.filter(d => d.rain === label).length);
+
+      const tempHumCtx = document.getElementById("tempHumChart").getContext("2d");
+      new Chart(tempHumCtx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Temperature (°C)",
+              data: temps,
+              borderColor: "#ef4444",
+              backgroundColor: "rgba(239, 68, 68, 0.2)",
+              tension: 0.4
+            },
+            {
+              label: "Humidity (%)",
+              data: hums,
+              borderColor: "#3b82f6",
+              backgroundColor: "rgba(59, 130, 246, 0.2)",
+              tension: 0.4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            duration: 1500,
+            easing: 'easeOutQuart'
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+
+      const rainCtx = document.getElementById("rainChart").getContext("2d");
+      new Chart(rainCtx, {
+        type: "bar",
+        data: {
+          labels: rainLabels,
+          datasets: [
+            {
+              label: "Rain Occurrence Count",
+              data: rainCounts,
+              backgroundColor: ["#60a5fa", "#34d399", "#fbbf24", "#f87171"]
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            duration: 1500,
+            easing: 'easeOutBounce'
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    async function init() {
+      const data = await fetchData();
+      updateLatest(data);
+      renderCharts(data);
+    }
+
+    init();
+    setInterval(init, 60000); // refresh every minute
+  </script>
+</body>
+</html>
